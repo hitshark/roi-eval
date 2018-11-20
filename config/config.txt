@@ -1,0 +1,14 @@
+# RoI related config info for a network
+image_h : 512 
+image_w : 512 
+spatial_scale : 0.0625
+roi_pool_h : 7
+roi_pool_w : 7
+roi_channel : 490
+proposal_num : 300
+
+# pooling type, max/avg
+pool_type : max
+
+# bilinear sampling points
+bisample_num : 4
