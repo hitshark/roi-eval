@@ -1,5 +1,7 @@
 #include <random>
 #include <array>
+#include <map>
+#include <functional>
 #include <iostream>
 #include <iomanip>
 #include <ctime>
@@ -14,6 +16,8 @@ using std::uniform_real_distribution;
 using std::uniform_int_distribution;
 using std::fmax;
 using std::fmin;
+using std::max;
+using std::min;
 using std::floor;
 using std::ceil;
 
@@ -30,7 +34,9 @@ PSRoIAlign<T>::PSRoIAlign(int pnum) : proposal_num(pnum) {
 	roi_pool_h_ = Config::getInst().getRoiPoolHeight();
 	roi_pool_w_ = Config::getInst().getRoiPoolWidth();
 	roi_channel_ = Config::getInst().getRoiChannel();
-	proposal_num_ = Config::getInst().getProposalNum();
+	orig_proposal_num_ = Config::getInst().getOrigProposalNum();
+	nms_iou_threshold_ = Config::getInst().getNmsIouThreshold();
+	nms_score_threshold_ = Config::getInst().getNmsScoreThreshold();
 	pool_type_ = Config::getInst().getPoolType();
 	bisample_num_ = Config::getInst().getBisampleNum();
 	if(bisample_num_ != 4) {
@@ -38,7 +44,6 @@ PSRoIAlign<T>::PSRoIAlign(int pnum) : proposal_num(pnum) {
 		abort();
 	}
 
-	proposal_num = proposal_num_;
 	class_num_ = roi_channel_ / (roi_pool_h_ * roi_pool_w_);
 	fmap_h_ = static_cast<int>(image_h_ * spatial_scale_);
 	fmap_w_ = static_cast<int>(image_w_ * spatial_scale_);
@@ -61,19 +66,22 @@ void PSRoIAlign<T>::genInputFmap() {
 	}
 }
 
+
 template <class T>
 void PSRoIAlign<T>::genProposal() {
-	const int anchor_h[] = {45, 64, 90, 91, 128, 180, 181, 256, 362};
-	const int anchor_w[] = {90, 64, 45, 180, 128, 91, 362, 256, 181};
-	uniform_int_distribution<int> r_anchor_size(0,8);
+	const int anchor_h[] = {23, 32, 46, 45, 64, 90, 91, 128, 180, 181, 256, 362, 362, 512, 724};
+	const int anchor_w[] = {46, 32, 23, 90, 64, 45, 180, 128, 91, 362, 256, 181, 724, 512, 362};
+	uniform_int_distribution<int> r_anchor_size(0,14);
 
 	uniform_int_distribution<int> r_image_y(0,image_h_-1);
 	uniform_int_distribution<int> r_image_x(0,image_w_-1);
 
 	uniform_real_distribution<double> r_bb_fix(0.01, 0.5);
+	uniform_real_distribution<double> r_score(0.01, 0.99);
 	default_random_engine e(time(nullptr));
 
-	for(int i = 0; i < proposal_num; i++) {
+	for(int i = 0; i < orig_proposal_num_; i++) {
+		double score;
 		std::array<double, 4> pp_fixed;
 		std::array<int, 4> position;
 		for(int k = 0; k < 4; k++) pp_fixed[k] = r_bb_fix(e);
@@ -82,20 +90,64 @@ void PSRoIAlign<T>::genProposal() {
 		position[1] = r_image_y(e);
 		position[2] = anchor_w[index];
 		position[3] = anchor_h[index];
+		score = r_score(e);
 
-		Proposal tmp(pp_fixed, position);
-		pp_vec.push_back(tmp);
+		Proposal tmp(score, pp_fixed, position);
+		pp_gen.push_back(tmp);
 	}
 }
 
 
 template <class T>
 void PSRoIAlign<T>::calcProposal() {
-	for(int i = 0; i < proposal_num; i++) {
-		pp_vec[i].calcProposal();
-		pp_vec[i].calcRoI(spatial_scale_, roi_pool_h_, roi_pool_w_);
+	for(int i = 0; i < orig_proposal_num_; i++) {
+		pp_gen[i].calcProposal();
+		pp_gen[i].calcRoI(spatial_scale_, roi_pool_h_, roi_pool_w_);
 	}
 }
+
+
+template <class T>
+void PSRoIAlign<T>::doNMS() {
+	std::map<double, int, std::greater<double>> score_ordered;
+	for(unsigned i = 0; i < pp_gen.size(); i++) {
+		if(pp_gen[i].getScore() > nms_score_threshold_) {
+			score_ordered.insert(std::pair<double, int>(pp_gen[i].getScore(), i));
+		}
+	}
+	for(int i = 0; i < proposal_num; i++) {
+		std::pair<double, int> top = *(score_ordered.begin());
+		Proposal cadidate = pp_gen[top.second]; 
+		score_ordered.erase(top.first);
+		pp_vec.push_back(cadidate);
+
+		std::vector<int> pp_id;
+		for(auto iter = score_ordered.begin(); iter != score_ordered.end(); iter++) {
+			pp_id.push_back(iter->second);
+		}
+
+		std::array<int, 4> cord = cadidate.getProposal();
+		int cadidate_area = (cord[2] - cord[0]) * (cord[3] - cord[1]);
+		for(unsigned j = 0; j < pp_id.size(); j++) {
+			Proposal comp = pp_gen[pp_id[j]];
+			std::array<int, 4> comp_cord = comp.getProposal();
+			// calculation overlap
+			int h1 = max(comp_cord[0], cord[0]);
+			int w1 = max(comp_cord[1], cord[1]);
+			int h2 = min(comp_cord[2], cord[2]);
+			int w2 = min(comp_cord[3], cord[3]);
+			int w = max(0, w2-w1+1);
+			int h = max(0, h2-h1+1);
+			int overlap_area = w * h;
+			double iou = static_cast<double>(overlap_area) / static_cast<double>(cadidate_area);
+			if(iou > nms_iou_threshold_) {
+				double comp_score = comp.getScore();
+				score_ordered.erase(comp_score);
+			}
+		}
+	}
+}
+
 
 template <class T>
 void PSRoIAlign<T>::calcPooling() {

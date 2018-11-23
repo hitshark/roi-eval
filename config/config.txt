@@ -5,10 +5,13 @@ spatial_scale : 0.0625
 roi_pool_h : 7
 roi_pool_w : 7
 roi_channel : 490
+orig_proposal_num : 27000
+nms_score_threshold : 0.7
+nms_iou_threshold : 0.6
 proposal_num : 300
 
 # pooling type, max/avg
-pool_type : max
+pool_type : avg
 
 # bilinear sampling points
 bisample_num : 4

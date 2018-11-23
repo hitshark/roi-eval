@@ -18,6 +18,9 @@ class Config {
 		int getProposalNum() const {return proposal_num;}
 		string getPoolType() const {return pool_type;}
 		int getBisampleNum() const {return bisample_num;}
+		int getOrigProposalNum() const {return orig_proposal_num;}
+		double getNmsScoreThreshold() const {return nms_score_threshold;}
+		double getNmsIouThreshold() const {return nms_iou_threshold;}
 
 		static Config & getInst() {
 			static Config inst;
@@ -34,6 +37,9 @@ class Config {
 		int roi_pool_w;
 		int roi_channel;
 		int proposal_num;
+		int orig_proposal_num;
+		double nms_score_threshold;
+		double nms_iou_threshold;
 		string pool_type;
 		int bisample_num;
 		

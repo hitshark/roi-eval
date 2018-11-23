@@ -17,6 +17,7 @@ class PSRoIPool {
 		void genInputFmap();
 		void genProposal();
 		void calcProposal();
+		void doNMS();
 		void calcPooling();
 
 		// for logging
@@ -27,6 +28,7 @@ class PSRoIPool {
 
 	private:
 		int proposal_num;
+		vector<Proposal> pp_gen;
 		vector<Proposal> pp_vec;
 		vector<T> fmap;
 		vector<T> rlt;
@@ -38,7 +40,9 @@ class PSRoIPool {
 		int roi_pool_h_;
 		int roi_pool_w_;
 		int roi_channel_;
-		int proposal_num_;
+		int orig_proposal_num_;
+		double nms_iou_threshold_;
+		double nms_score_threshold_;
 		string pool_type_;
 
 		// internal variable

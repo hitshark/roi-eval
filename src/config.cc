@@ -68,6 +68,9 @@ void Config::parse(string file) {
 			else if(!item.compare("roi_pool_w")) roi_pool_w = std::stoul(vec[1]);
 			else if(!item.compare("roi_channel")) roi_channel = std::stoul(vec[1]);
 			else if(!item.compare("proposal_num")) proposal_num = std::stoul(vec[1]);
+			else if(!item.compare("orig_proposal_num")) orig_proposal_num = std::stoul(vec[1]);
+			else if(!item.compare("nms_iou_threshold")) nms_iou_threshold = std::stod(vec[1]);
+			else if(!item.compare("nms_score_threshold")) nms_score_threshold = std::stod(vec[1]);
 			else if(!item.compare("pool_type")) pool_type = vec[1];
 			else if(!item.compare("bisample_num")) bisample_num = std::stoul(vec[1]);
 		}
@@ -87,9 +90,10 @@ void Config::printCfg() const {
 		<<setw(15)<<"roi_pool_w" << ": " << roi_pool_w << endl
 		<<setw(15)<<"roi_channel" << ": " << roi_channel << endl
 		<<setw(15)<<"proposal_num" << ": " << proposal_num << endl
+		<<setw(20)<<"orig_proposal_num" << ": " << orig_proposal_num << endl
+		<<setw(20)<<"nms_iou_threshold" << ": " << nms_iou_threshold << endl
+		<<setw(20)<<"nms_score_threshold" << ": " << nms_score_threshold << endl
 		<<setw(15)<<"pool_type" << ": " << pool_type << endl
 		<<setw(15)<<"bisample_num" << ": " << bisample_num << endl;
 }
-
-
 
